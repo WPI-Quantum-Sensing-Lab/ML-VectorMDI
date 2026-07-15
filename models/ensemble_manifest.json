@@ -1,0 +1,85 @@
+{
+  "ensemble_size": 6,
+  "base_seed": 42,
+  "ensemble_output_dir": "models",
+  "member_final_checkpoints": [
+    "models/member_00/vector_model_baby_steps_final.pth",
+    "models/member_01/vector_model_baby_steps_final.pth",
+    "models/member_02/vector_model_baby_steps_final.pth",
+    "models/member_03/vector_model_baby_steps_final.pth",
+    "models/member_04/vector_model_baby_steps_final.pth",
+    "models/member_05/vector_model_baby_steps_final.pth"
+  ],
+  "member_results": [
+    {
+      "member_idx": 0,
+      "seed": 42,
+      "output_dir": "models/member_00",
+      "final_checkpoint": "models/member_00/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 0.0,
+      "skipped": true
+    },
+    {
+      "member_idx": 1,
+      "seed": 43,
+      "output_dir": "models/member_01",
+      "final_checkpoint": "models/member_01/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 14806.797000000006
+    },
+    {
+      "member_idx": 2,
+      "seed": 44,
+      "output_dir": "models/member_02",
+      "final_checkpoint": "models/member_02/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 120525.71899999998
+    },
+    {
+      "member_idx": 3,
+      "seed": 45,
+      "output_dir": "models/member_03",
+      "final_checkpoint": "models/member_03/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 138710.28199999998
+    },
+    {
+      "member_idx": 4,
+      "seed": 46,
+      "output_dir": "models/member_04",
+      "final_checkpoint": "models/member_04/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 121835.391
+    },
+    {
+      "member_idx": 5,
+      "seed": 47,
+      "output_dir": "models/member_05",
+      "final_checkpoint": "models/member_05/vector_model_baby_steps_final.pth",
+      "returncode": 0,
+      "success": true,
+      "elapsed_seconds": 119189.79700000002
+    }
+  ],
+  "hyperparams": {
+    "dataset_root": "C:\\Users\\jefeinstein\\GitHub\\VecMagNet-private\\data\\datasets",
+    "min_dipoles": 1,
+    "max_dipoles": 10,
+    "alpha": 0.6,
+    "advancement_threshold": 0.05,
+    "max_epochs_per_stage": 300,
+    "stage_samples": 20000,
+    "w_n_data": 8000,
+    "batch_size": 64,
+    "lr": 0.0003,
+    "aug_prob": 0.1,
+    "physics_weight": 0.0,
+    "dipolenet": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "global_calibration_factor": 1.0796867373656311,
+  "optimal_scalar_c": 1.0796867373656311,
+  "max_strictly_improving_scalar": 1.0563330986783757,
+  "max_strictly_improving_binding": "testing_1dipoles_snr_0.05_standoff0p1_20260512",
+  "pooled_calib_filtered": 1.079886723956866,
+  "pool_filter": "all datasets",
+  "n_datasets_pooled": 133,
+  "median_calibration_factor": 1.0755047838093323,
+  "std_calibration_factor": 0.04460217635653931,
+  "n_datasets_total": 170
+}
