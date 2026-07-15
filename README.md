@@ -1,8 +1,7 @@
 # VecMagNet — Publication Release
 
 Minimal code and artifacts needed to replicate the published experiment: a
-6-member deep ensemble of curriculum-trained `AttentionDipoleModel` networks
-(no physics loss, mixup rate 0.1), plus the isotonic magnitude-calibration
+6-member (1 main + 5 ensemble) deep ensemble of curriculum-trained `AttentionDipoleModel` networks plus isotonic magnitude-calibration
 post-processing and the synthetic-data pipeline used to build the training and
 testing datasets.
 
@@ -104,13 +103,9 @@ mean_moment, std_moment = predictor(x)   # x: [B, 3, 100, 100]
 
 ## Notes on scope
 
-- Only the code exercised by the no-physics run is included. The physics-loss
-  variant, the legacy/experimental architectures, and the figure/evaluation
+- Legacy/experimental architectures and the figure/evaluation
   tooling from the research repository are intentionally omitted.
-  (`DipoleNetLoss` retains its `physics_weight` argument; the experiment sets
-  it to 0.)
 - `PATH_TO/...` placeholders in the `configs/` files must be pointed at your
   local copies of the data before running.
-- `blanks.h5` contains the cleaned blank sections (contaminated sections
-  already excluded); the shipped models were trained on datasets built from
-  exactly this archive.
+- `blanks.h5` contains the noise maps; the shipped models were trained on datasets built from
+  exactly these.
