@@ -102,7 +102,7 @@ def _make_optimizer(
     optimizer_name: str = "adamw",
     extra_parameters: list[torch.nn.Parameter] | None = None,
 ) -> torch.optim.Optimizer:
-    """Construct a fresh optimiser for *model* and any auxiliary parameters."""
+    """Construct a fresh optimizer for *model* and any auxiliary parameters."""
 
     parameter_groups = list(model.parameters())
     if extra_parameters:
@@ -136,7 +136,7 @@ def _warm_restart_scheduler(
     gamma: float,
     base_lr: float,
 ) -> torch.optim.lr_scheduler._LRScheduler | None:
-    """Restore the optimiser learning rate and recreate the StepLR scheduler."""
+    """Restore the optimizer learning rate and recreate the StepLR scheduler."""
 
     for parameter_group in optimizer.param_groups:
         parameter_group["lr"] = base_lr

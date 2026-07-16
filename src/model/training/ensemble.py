@@ -2,7 +2,7 @@
 
 Runs the full baby-steps curriculum training N times, each with a different
 random seed, to produce a proper deep ensemble (Lakshminarayanan et al. 2017).
-Diversity comes from independent weight initialisation and stochastic training
+Diversity comes from independent weight initialization and stochastic training
 dynamics rather than fine-tuning a shared checkpoint.
 
 Each ensemble member is an independent subprocess call to

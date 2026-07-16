@@ -406,7 +406,7 @@ def max_strictly_improving_scalar(df: pd.DataFrame) -> tuple[float, str]:
 
 
 def optimal_global_scalar(df: pd.DataFrame, *, r2_min: float | None = None) -> float:
-    """Find c* minimising sum_i n_i * (slope_i * c - 1)^2.
+    """Find c* minimizing sum_i n_i * (slope_i * c - 1)^2.
 
     Closed form: c* = sum(n_i * slope_i) / sum(n_i * slope_i^2)
     This is the single scalar that best corrects all datasets simultaneously,
@@ -426,7 +426,7 @@ def build_per_snr_table(df: pd.DataFrame, fallback: float) -> dict:
     """Compute a per-SNR calibration table from per-dataset survey rows.
 
     Uses sample-count-weighted mean slope per SNR bin.  Returns a dict ready
-    to be serialised as JSON and used for nearest-SNR lookup at inference time.
+    to be serialized as JSON and used for nearest-SNR lookup at inference time.
     """
     rows = []
     for snr, group in df.groupby("snr"):
@@ -440,7 +440,7 @@ def build_per_snr_table(df: pd.DataFrame, fallback: float) -> dict:
 
 
 def build_per_dipole_table(df: pd.DataFrame, fallback: float, *, r2_min: float = 0.85) -> dict:
-    """Per-dipole-count optimal calibration scalar (minimises weighted squared residuals within each count).
+    """Per-dipole-count optimal calibration scalar (minimizes weighted squared residuals within each count).
 
     Only datasets with R² >= r2_min are used to fit the scalar; low-SNR datasets where
     the linear relationship is noise-dominated are excluded.  Defaults to r2_min=0.85.
@@ -674,7 +674,7 @@ def main() -> None:
     c_max, binding = max_strictly_improving_scalar(df)
 
     print(f"\n{'='*70}")
-    print(f"OPTIMAL GLOBAL SCALAR  (minimises weighted sum of squared residuals, all {len(df)} datasets)")
+    print(f"OPTIMAL GLOBAL SCALAR  (minimizes weighted sum of squared residuals, all {len(df)} datasets)")
     print(f"  c* = {optimal_c:.6f}  (c* = sum(n*slope) / sum(n*slope^2))")
 
     print(f"\n{'='*70}")

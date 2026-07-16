@@ -243,7 +243,7 @@ def physics_refine(
     n_steps: int = 50,
     lr: float = 1e-3,
 ) -> torch.Tensor:
-    """Refine a single-dipole moment estimate by minimising the forward-model residual.
+    """Refine a single-dipole moment estimate by minimizing the forward-model residual.
 
     Starting from the model's initial prediction, runs Adam gradient descent on
     ||B_dipole(m; r_grid) - B_obs||² to correct errors in both magnitude and
@@ -254,7 +254,7 @@ def physics_refine(
         moment_init: Initial moment vector [3] from the neural network.
         B_obs: Observed magnetic field [3, H, W] in physical units (e.g. Tesla).
         r_grid: Measurement grid coordinates [H, W, 3] in metres.
-        n_steps: Number of Adam optimisation steps.
+        n_steps: Number of Adam optimization steps.
         lr: Adam learning rate.
 
     Returns:
@@ -262,15 +262,15 @@ def physics_refine(
     """
     device = moment_init.device
     m = moment_init.clone().float().detach().requires_grad_(True)
-    optimiser = torch.optim.Adam([m], lr=lr)
+    optimizer = torch.optim.Adam([m], lr=lr)
     B_obs_batch = B_obs.unsqueeze(0).float().to(device)   # [1, 3, H, W]
     r_grid_dev = r_grid.to(device)
     for _ in range(n_steps):
-        optimiser.zero_grad()
+        optimizer.zero_grad()
         B_pred = dipole_field_torch(m.unsqueeze(0), r_grid_dev)
         loss = F.mse_loss(B_pred, B_obs_batch)
         loss.backward()
-        optimiser.step()
+        optimizer.step()
     # Relative residual: RMSE / RMS(B_obs) — scale-invariant goodness-of-fit.
     # Near zero → field is consistent with a single dipole.
     # Large (e.g. >0.15) → multi-dipole superposition; refinement should be discarded.
@@ -391,7 +391,7 @@ class DipoleNetLoss(nn.Module):
 
     Separate cosine direction loss and log-space magnitude loss, balanced
     via Kendall homoscedastic uncertainty weighting.  An optional
-    physics-consistency term penalises deviation from the analytic dipole
+    physics-consistency term penalizes deviation from the analytic dipole
     forward model.
 
     Args:
