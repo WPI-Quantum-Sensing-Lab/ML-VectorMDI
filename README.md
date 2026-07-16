@@ -76,12 +76,12 @@ use `--dry-run` first to smoke-test the pipeline.
    published 6-member ensemble, or `python train_ensemble.py` /
    `python train_model.py` for config-driven runs. Published settings (baked
    into the configs): 6 members (seeds 42–47), DipoleNet, mixup rate 0.1,
-   physics weight 0.0, α = 0.6 curriculum, 20 000 samples/stage,
+   α = 0.6 curriculum, 20 000 samples/stage,
    early-stopped ≤300 epochs/stage, batch 64, AdamW lr 3e-4.
-4. **Fit the isotonic calibration**: point `configs/calibrate.ini` at the run
+5. **Fit the isotonic calibration**: point `configs/calibrate.ini` at the run
    manifest of the evaluated test datasets, then `python calibrate.py`; the
    fitted tables are written next to the ones shipped in `models/calibration/`.
-5. **Predict**: point `configs/predict.ini` at a `dataset.h5` and
+6. **Predict**: point `configs/predict.ini` at a `dataset.h5` and
    `python predict.py` — prints the predicted moment, ensemble uncertainty,
    and calibrated magnitude for one sample.
 
