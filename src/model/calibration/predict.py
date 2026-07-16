@@ -247,7 +247,7 @@ def build_field_scaling_config(
 
 
 def field_scaling_signature_payload(config: FieldScalingConfig) -> Dict[str, float | str | bool | None]:
-    """Return a stable JSON-serialisable summary for caching and manifests."""
+    """Return a stable JSON-serializable summary for caching and manifests."""
 
     return {
         "mode": config.mode,
@@ -334,7 +334,7 @@ def progress_bar(total: int, title: str, enabled: bool) -> Iterator[Callable[[],
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for inference configuration."""
 
-    parser = argparse.ArgumentParser(description="Run inference and summarise vector model errors.")
+    parser = argparse.ArgumentParser(description="Run inference and summarize vector model errors.")
     parser.add_argument(
         "--model-path",
         type=Path,
@@ -412,7 +412,7 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_FIELD_SCALING_MODE,
         help=(
             "Optional inference-time rescaling for predicted magnetic moments. "
-            "'gaussian_vector_percentile' smooths the measured and forward-modelled fields "
+            "'gaussian_vector_percentile' smooths the measured and forward-modeled fields "
             "with a Gaussian filter, then matches their robust 1st/99th-percentile amplitudes."
         ),
     )
@@ -1194,7 +1194,7 @@ def predict_and_save(
                         dtype=prediction_vector.dtype,
                     )
                 field_scaling_factors.append(float(scale_factor))
-                # Physics refinement: minimise ||B_dipole(m) - B_obs||² w.r.t. m.
+                # Physics refinement: minimize ||B_dipole(m) - B_obs||² w.r.t. m.
                 if refine_fn is not None and r_grid is not None:
                     B_obs = torch_module.from_numpy(raw_images[image_index]).float().permute(2, 0, 1)
                     with torch_module.enable_grad():

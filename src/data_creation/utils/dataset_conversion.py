@@ -3,7 +3,7 @@
 The original :mod:`dataset_conversion` module shipped a small ``H5Dataset``
 wrapper that many scripts in this repository import.  The file was removed
 during a recent cleanup which left those imports failing at runtime.  This
-module reintroduces a lightweight implementation that covers the behaviour
+module reintroduces a lightweight implementation that covers the behavior
 used throughout the codebase so downstream scripts keep functioning without
 modification.
 """

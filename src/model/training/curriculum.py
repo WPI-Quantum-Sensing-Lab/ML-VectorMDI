@@ -151,7 +151,7 @@ def _compute_cell_difficulty(
     else:
         c_norm = 0.0
 
-    # Log-normalise SNR so perceptually equal intervals → equal rank increments.
+    # Log-normalize SNR so perceptually equal intervals → equal rank increments.
     if snr_max > snr_min and snr > 0 and snr_min > 0:
         log_snr = math.log(snr)
         log_snr_min = math.log(snr_min)

@@ -25,8 +25,8 @@ def _ensure_timezone(dt: _dt.datetime) -> _dt.datetime:
     return dt.astimezone(_dt.timezone.utc)
 
 
-def _to_serialisable(obj: Any) -> Any:
-    """Convert *obj* into a JSON-serialisable structure."""
+def _to_serializable(obj: Any) -> Any:
+    """Convert *obj* into a JSON-serializable structure."""
 
     if isinstance(obj, (str, int, float, bool)) or obj is None:
         return obj
@@ -41,9 +41,9 @@ def _to_serialisable(obj: Any) -> Any:
     if isinstance(obj, torch.dtype):
         return str(obj)
     if isinstance(obj, Mapping):
-        return {k: _to_serialisable(v) for k, v in obj.items()}
+        return {k: _to_serializable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set)):
-        return [_to_serialisable(v) for v in obj]
+        return [_to_serializable(v) for v in obj]
     return str(obj)
 
 
@@ -188,18 +188,18 @@ def dataset_stage_metadata(
     }
 
 
-def _serialise_optimizer(
+def _serialize_optimizer(
     optimizer: torch.optim.Optimizer | None,
 ) -> Dict[str, Any] | None:
     if optimizer is None:
         return None
     return {
         "name": optimizer.__class__.__name__,
-        "defaults": _to_serialisable(dict(optimizer.defaults)),
+        "defaults": _to_serializable(dict(optimizer.defaults)),
     }
 
 
-def _serialise_scheduler(
+def _serialize_scheduler(
     scheduler: torch.optim.lr_scheduler._LRScheduler | None,
 ) -> Dict[str, Any] | None:
     if scheduler is None:
@@ -209,26 +209,26 @@ def _serialise_scheduler(
     for attr in ("step_size", "gamma", "T_max", "eta_min"):
         if hasattr(scheduler, attr):
             config[attr] = getattr(scheduler, attr)
-    return _to_serialisable(config)
+    return _to_serializable(config)
 
 
-def _serialise_criterion(criterion: Any) -> Dict[str, Any]:
+def _serialize_criterion(criterion: Any) -> Dict[str, Any]:
     name = getattr(criterion, "__name__", criterion.__class__.__name__)
     config: Dict[str, Any] = {"name": name}
     for attr in ("reduction", "delta"):
         if hasattr(criterion, attr):
             config[attr] = getattr(criterion, attr)
-    return _to_serialisable(config)
+    return _to_serializable(config)
 
 
 def _namespace_to_dict(args: Any) -> Dict[str, Any] | None:
     if args is None:
         return None
     if isinstance(args, Mapping):
-        return _to_serialisable(dict(args))
+        return _to_serializable(dict(args))
     if hasattr(args, "__dict__"):
-        return _to_serialisable(vars(args))
-    return _to_serialisable(args)
+        return _to_serializable(vars(args))
+    return _to_serializable(args)
 
 
 def build_training_metadata(
@@ -261,7 +261,7 @@ def build_training_metadata(
     model_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    stages_serialised = [_to_serialisable(dict(stage)) for stage in dataset_stages]
+    stages_serialized = [_to_serializable(dict(stage)) for stage in dataset_stages]
     total_train = sum(int(stage.get("train_samples") or 0) for stage in dataset_stages)
     total_val = sum(int(stage.get("val_samples") or 0) for stage in dataset_stages)
     total_test = sum(
@@ -287,12 +287,12 @@ def build_training_metadata(
             "best_val_loss": metrics.get("best_val_loss"),
             "train_loss_final": (metrics.get("train_loss") or [None])[-1],
         },
-        "per_epoch": _to_serialisable(
+        "per_epoch": _to_serializable(
             {k: v for k, v in per_epoch_metrics.items() if v is not None}
         ),
     }
     if "stage_metrics" in metrics:
-        evaluation_summary["stage_metrics"] = _to_serialisable(metrics["stage_metrics"])
+        evaluation_summary["stage_metrics"] = _to_serializable(metrics["stage_metrics"])
     known_keys = {
         "train_loss",
         "train_mag_p",
@@ -305,7 +305,7 @@ def build_training_metadata(
         key: value for key, value in metrics.items() if key not in known_keys
     }
     if additional_metrics:
-        evaluation_summary["additional"] = _to_serialisable(additional_metrics)
+        evaluation_summary["additional"] = _to_serializable(additional_metrics)
 
     artifacts = {
         "checkpoint_prefix": checkpoint_prefix,
@@ -313,7 +313,7 @@ def build_training_metadata(
         "final_model_path": final_model_path,
     }
     if artifacts_extra:
-        artifacts.update(_to_serialisable(dict(artifacts_extra)))
+        artifacts.update(_to_serializable(dict(artifacts_extra)))
 
     metadata = {
         "schema_version": SCHEMA_VERSION,
@@ -329,7 +329,7 @@ def build_training_metadata(
         "hardware": _collect_hardware_info(device),
         "env": _collect_env_info(),
         "data": {
-            "stages": stages_serialised,
+            "stages": stages_serialized,
             "total_samples": total_samples,
             "total_train_samples": total_train,
             "total_val_samples": total_val,
@@ -344,16 +344,16 @@ def build_training_metadata(
             )
             or None,
             "batch_size": getattr(args, "batch_size", None),
-            "optimizer": _serialise_optimizer(optimizer),
-            "scheduler": _serialise_scheduler(scheduler),
-            "loss_fn": _serialise_criterion(criterion),
+            "optimizer": _serialize_optimizer(optimizer),
+            "scheduler": _serialize_scheduler(scheduler),
+            "loss_fn": _serialize_criterion(criterion),
         },
         "curriculum": {
             "order_type": order_type,
-            "train_sequence": stages_serialised,
+            "train_sequence": stages_serialized,
         },
         "evaluation": evaluation_summary,
-        "artifacts": _to_serialisable(artifacts),
+        "artifacts": _to_serializable(artifacts),
         "provenance": {
             "trainer_script": trainer_script,
             "cli_args": _namespace_to_dict(args),
@@ -371,5 +371,5 @@ def save_training_metadata(
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fp:
-        json.dump(_to_serialisable(metadata), fp, indent=2)
+        json.dump(_to_serializable(metadata), fp, indent=2)
     return path

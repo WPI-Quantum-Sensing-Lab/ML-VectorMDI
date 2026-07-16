@@ -34,7 +34,7 @@ def _run_git_command(args: Sequence[str]) -> str | None:
     return result.stdout.strip() or None
 
 
-def _to_serialisable(value: Any) -> Any:
+def _to_serializable(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     if isinstance(value, Path):
@@ -48,9 +48,9 @@ def _to_serialisable(value: Any) -> Any:
     if isinstance(value, torch.dtype):
         return str(value)
     if isinstance(value, Mapping):
-        return {k: _to_serialisable(v) for k, v in value.items()}
+        return {k: _to_serializable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
-        return [_to_serialisable(v) for v in value]
+        return [_to_serializable(v) for v in value]
     return str(value)
 
 
@@ -90,14 +90,14 @@ def init_run(
             "git_commit": _run_git_command(["rev-parse", "HEAD"]),
             "git_dirty": bool(_run_git_command(["status", "--porcelain"])),
             "model_name": model_name,
-            "dataset_path": _to_serialisable(dataset_path),
+            "dataset_path": _to_serializable(dataset_path),
             "seed": seed,
-            "cli_args": _to_serialisable(vars(cli_args) if hasattr(cli_args, "__dict__") else cli_args),
+            "cli_args": _to_serializable(vars(cli_args) if hasattr(cli_args, "__dict__") else cli_args),
             "python_version": platform.python_version(),
             "torch_version": torch.__version__,
         }
         with run_json_path.open("w", encoding="utf-8") as handle:
-            json.dump(_to_serialisable(run_payload), handle, indent=2)
+            json.dump(_to_serializable(run_payload), handle, indent=2)
 
     artifacts_path = run_dir_path / "artifacts.json"
     if not artifacts_path.exists():
