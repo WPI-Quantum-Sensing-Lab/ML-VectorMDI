@@ -214,7 +214,7 @@ def main(**kwargs):
         for r in tqdm.tqdm(results):
             data_pool.append(r.get())
 
-    print("Data generation complete.")
+    print("Data generation complete. Saving.")
     if data_pool:
         I_batch = np.stack([e[0] for e in data_pool], axis=0).astype(np.float32)
         m_batch = np.stack([e[1] for e in data_pool], axis=0).astype(np.float32)
