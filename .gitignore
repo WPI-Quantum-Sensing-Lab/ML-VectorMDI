@@ -11,3 +11,6 @@ src/runs/
 src/figures/
 src/big_results*/
 src/dry_run_results/
+
+
+*.zip
