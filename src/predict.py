@@ -25,6 +25,7 @@ import torch
 
 from model.architecture import AttentionDipoleModel
 from model.training.ensemble import EnsemblePredictor
+from model.training.stage_runner import load_state_dict_checkpoint
 
 _SRC = Path(__file__).resolve().parent
 DEFAULT_CONFIG = _SRC.parent / "configs" / "predict.ini"
@@ -87,7 +88,7 @@ def _load_predictor(args: argparse.Namespace, device: torch.device):
         ), True
     if args.checkpoint:
         m = AttentionDipoleModel(base_channels=args.base_channels).to(device)
-        state = torch.load(args.checkpoint, map_location=device, weights_only=True)
+        state = load_state_dict_checkpoint(args.checkpoint, map_location=device)
         m.load_state_dict(state)
         m.eval()
         return m, False

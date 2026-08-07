@@ -136,8 +136,63 @@ config_blank_hdf5_value = config["snr_sort"].get("blank_hdf5_path", "").strip()
 repository_root = Path(__file__).resolve().parents[3]
 user_home = Path.home()
 
+
+def anchor_to_repository(raw_path: str) -> Path | None:
+    """Expand a config path, anchoring relative values to the repository root.
+
+    Config paths must not depend on the working directory: `blend_noise.py` is
+    documented as being run from ``src/`` but is equally runnable from the repo
+    root, and a bare relative path silently resolves differently in each case.
+    """
+
+    cleaned = (raw_path or "").strip()
+    if not cleaned or "PATH_TO" in cleaned:
+        return None
+    candidate = Path(cleaned).expanduser()
+    return candidate if candidate.is_absolute() else repository_root / candidate
+
+# All blended SNR datasets are written under the repository's data/datasets/
+# tree so that training's dataset discovery can find them regardless of the
+# current working directory (previously bare relative paths dumped them in src/).
+DATASET_OUTPUT_ROOT = repository_root / "data" / "datasets"
+
+
+def resolve_source_dataset_path(raw_path: str) -> Path:
+    """Resolve the ``[snr_sort] path`` source dataset to a concrete directory.
+
+    Relative paths are anchored to the repository root (not the working
+    directory) so the same config works from ``src/`` or from the repo root.
+    Accepts either the dataset folder or the ``dataset.h5`` inside it.
+    """
+
+    candidate = anchor_to_repository(raw_path)
+    if candidate is None or "<" in str(raw_path):
+        raise SystemExit(
+            "configs/blend_noise.ini still holds the placeholder `path`. Point "
+            "[snr_sort] path at the dataset folder produced by generate_data.py, "
+            f"e.g. data/datasets/<dataset_name>. Got: {raw_path!r}"
+        )
+
+    if candidate.name == "dataset.h5":
+        candidate = candidate.parent
+
+    if not (candidate / "dataset.h5").is_file():
+        available = (
+            sorted(p.name for p in DATASET_OUTPUT_ROOT.iterdir() if p.is_dir())
+            if DATASET_OUTPUT_ROOT.is_dir()
+            else []
+        )
+        raise SystemExit(
+            f"Source dataset not found: {candidate / 'dataset.h5'}\n"
+            "Run `python generate_data.py` first, then set [snr_sort] path in "
+            "configs/blend_noise.ini to the generated folder.\n"
+            f"Datasets currently under {DATASET_OUTPUT_ROOT}: "
+            f"{available or '(none)'}"
+        )
+    return candidate
+
 _DEFAULT_BLANK_DIRECTORY_CANDIDATES = [
-    Path(config_blank_directory_value) if config_blank_directory_value else None,
+    anchor_to_repository(config_blank_directory_value),
     repository_root / "data" / "blanks" / "250408" / "sections",
     user_home / "GitHub" / "VecMagNet" / "data" / "blanks" / "250408" / "sections",
 ]
@@ -152,7 +207,8 @@ _DEFAULT_BLANK_DIRECTORY = next(
 )
 
 _DEFAULT_BLANK_HDF5_CANDIDATES = [
-    Path(config_blank_hdf5_value) if config_blank_hdf5_value else None,
+    anchor_to_repository(config_blank_hdf5_value),
+    repository_root / "data" / "blanks" / "blanks.h5",
     repository_root / "data" / "blanks" / "250408" / "combined_hdf5" / "blanks.h5",
     repository_root / "data" / "blanks" / "blank_sections.h5",
     user_home / "GitHub" / "VecMagNet" / "data" / "blanks" / "250408" / "combined_hdf5" / "blanks.h5",
@@ -528,7 +584,7 @@ def survey_target_dataset_counts(
             dataset_name_prefix,
             snr_value,
         )
-        dataset_local_path = Path(dataset_directory_name) / "dataset.h5"
+        dataset_local_path = DATASET_OUTPUT_ROOT / dataset_directory_name / "dataset.h5"
         current_image_count = get_dataset_row_count(dataset_local_path)
         snr_image_counts[snr_value] = current_image_count
         if current_image_count < target_size:
@@ -612,7 +668,7 @@ class DirectoryManager:
                 dataset_name_prefix,
                 snr,
             )
-            snr_directory = Path("../data/datasets") / dataset_directory_name
+            snr_directory = DATASET_OUTPUT_ROOT / dataset_directory_name
             self.create_snr_directory(snr_directory)
 
             logging.info(f"Initialized dataset at {snr_directory}")
@@ -638,7 +694,7 @@ class DirectoryManager:
                 dataset_name_prefix,
                 snr,
             )
-            h5_path = Path("../data/datasets") / dataset_directory_name / "dataset.h5"
+            h5_path = DATASET_OUTPUT_ROOT / dataset_directory_name / "dataset.h5"
             if h5_path.exists():
                 with h5py.File(h5_path, "r") as hf:
                     self.snr_image_counts[snr] = len(hf["I"])
@@ -884,7 +940,9 @@ def main():
     9. Repeats the process up to a maximum number of attempts, or until all datasets reach the required size.
     The function ensures efficient data generation and storage, preventing infinite loops and providing progress feedback.
     """
-    source_dataset_path = Path(map_source_path)
+    source_dataset_path = resolve_source_dataset_path(map_source_path)
+    logging.info("Using source dataset at %s", source_dataset_path)
+    logging.info("Blended datasets will be written under %s", DATASET_OUTPUT_ROOT)
     logging.info("Starting main process.")
     start_total = time.perf_counter()
 
@@ -967,7 +1025,7 @@ def main():
     # Initialize the noise generator with blank images and source data
     noise_generator = NoiseGenerator(
         blank_source_identifiers,
-        h5_data_path=Path(map_source_path) / "dataset.h5",
+        h5_data_path=source_dataset_path / "dataset.h5",
         blank_images=cached_blank_arrays,
         dipole_images=dipole_images,
         mnets=mnets,
@@ -1010,7 +1068,7 @@ def main():
                 dataset_name_prefix,
                 desired_snr,
             )
-            dset_directory = Path(dataset_directory_name)
+            dset_directory = DATASET_OUTPUT_ROOT / dataset_directory_name
 
             # Ensure the directory exists for storing the dataset
             os.makedirs(dset_directory, exist_ok=True)

@@ -230,7 +230,15 @@ def _parse_snr_sequence(text: str) -> List[float]:
 
 
 def _resolve_dataset_root(dataset_root: str) -> Path:
-    root = Path(dataset_root)
+    """Resolve ``--dataset_root``, anchoring relative values to the repo root.
+
+    Anchoring to ``_REPO_ROOT`` rather than the working directory keeps the
+    configs valid from ``src/`` and from the repo root alike -- but it also
+    means a config value of ``../data/datasets`` resolves one level *above*
+    the repository, so relative values must be written as ``data/datasets``.
+    """
+
+    root = Path(dataset_root).expanduser()
     if not root.is_absolute():
         root = (_REPO_ROOT / root).resolve()
     return root
@@ -258,10 +266,15 @@ def _discover_datasets(
     max_dipoles: int,
 ) -> Dict[float, Dict[int, str]]:
     if not dataset_root.is_dir():
-        raise FileNotFoundError(f"Dataset root does not exist: {dataset_root}")
+        raise FileNotFoundError(
+            f"Dataset root does not exist: {dataset_root}\n"
+            "Relative --dataset_root values are resolved against the repository "
+            f"root ({_REPO_ROOT}), so use `data/datasets`, not `../data/datasets`."
+        )
 
     mapping: Dict[float, Dict[int, str]] = {}
     duplicates: List[Tuple[float, int, str, str]] = []
+    unmatched: List[str] = []
 
     for entry in dataset_root.iterdir():
         if not entry.is_dir():
@@ -281,8 +294,10 @@ def _discover_datasets(
                 snr_text = match.group("snr")
 
         if dipoles is None or snr_text is None:
+            unmatched.append(name)
             continue
         if dipoles < min_dipoles or dipoles > max_dipoles:
+            unmatched.append(f"{name} (dipoles={dipoles} outside {min_dipoles}-{max_dipoles})")
             continue
 
         snr_value = _parse_snr_value(snr_text)
@@ -304,6 +319,16 @@ def _discover_datasets(
             for snr, dipoles, first, second in duplicates
         )
         raise ValueError(f"Duplicate dataset matches found: {details}")
+
+    if not mapping:
+        listing = "\n".join(f"  - {name}" for name in sorted(unmatched)[:20]) or "  (no subdirectories)"
+        raise ValueError(
+            f"No matching training datasets found under {dataset_root}\n"
+            "Dataset folders must be named `training_<N>dipoles[_Distance]_snr_<S>` "
+            "(e.g. training_1dipoles_snr_0.6). Set [snr_sort] name in "
+            "configs/blend_noise.ini to a matching prefix.\n"
+            f"Folders present that did not match:\n{listing}"
+        )
 
     return mapping
 

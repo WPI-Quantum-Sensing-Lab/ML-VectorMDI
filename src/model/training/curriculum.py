@@ -86,10 +86,10 @@ from model.training.utils import (
 )
 from model.training.stage_runner import (
     _build_best_checkpoint_path,
+    load_state_dict_checkpoint,
     load_xy_from_h5,
     make_loaders,
     plot_training,
-    resolve_torch_io_path,
     save_model,
     train_one_stage,
 )
@@ -1201,7 +1201,7 @@ def main() -> None:
         model = AttentionDipoleModel(base_channels=args.base_channels).to(device)
         model.device = device
         if args.pretrained:
-            state = torch.load(args.pretrained, map_location=device, weights_only=True)
+            state = load_state_dict_checkpoint(args.pretrained, map_location=device)
             model.load_state_dict(state)
             print(f"Loaded pretrained weights from {args.pretrained}")
         dipolenet_criterion = DipoleNetLoss(physics_weight=args.physics_weight).to(device)
@@ -1470,11 +1470,7 @@ def main() -> None:
             if not best_ckpt_path.is_absolute():
                 best_ckpt_path = ckpt_prefix.parent / best_ckpt_path.name
             print(f"Reloading best checkpoint from {best_ckpt_path}")
-            state_dict = torch.load(
-                resolve_torch_io_path(best_ckpt_path),
-                map_location=device,
-                weights_only=True,
-            )
+            state_dict = load_state_dict_checkpoint(best_ckpt_path, map_location=device)
             model.load_state_dict(state_dict)
 
         if run_dir and metrics.get("best_ckpt"):

@@ -16,6 +16,7 @@ import argparse
 import glob
 import logging
 import math
+import pickle
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -483,7 +484,20 @@ def load_model(model_path: Path, device: "torch.device", model_type: str) -> "to
 
     torch_module = _require_dependency(torch, "torch")
     expanded_path = model_path.expanduser()
-    state_dict = torch_module.load(expanded_path, map_location=device, weights_only=True)
+    try:
+        state_dict = torch_module.load(expanded_path, map_location=device, weights_only=True)
+    except pickle.UnpicklingError as safe_load_error:
+        # weights_only=True understands only a restricted pickle dialect; a
+        # checkpoint saved by a newer torch or with a higher pickle protocol
+        # trips it even when the payload is a plain state dict. These files are
+        # produced by this project's own training runs, so retry loudly.
+        logging.warning(
+            "Safe (weights_only=True) load failed for %s: %s. Retrying with "
+            "weights_only=False -- only appropriate for checkpoints you trust.",
+            expanded_path,
+            safe_load_error,
+        )
+        state_dict = torch_module.load(expanded_path, map_location=device, weights_only=False)
     if isinstance(state_dict, Mapping) and "state_dict" in state_dict:
         state_dict = state_dict["state_dict"]
     if not isinstance(state_dict, Mapping):

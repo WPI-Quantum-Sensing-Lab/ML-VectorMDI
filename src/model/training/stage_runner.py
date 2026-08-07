@@ -5,6 +5,7 @@ import glob
 import datetime
 import logging
 import hashlib
+import pickle
 import warnings
 from pathlib import Path
 
@@ -138,6 +139,47 @@ def resolve_torch_io_path(path: Path | str) -> str:
             return f"{unc_prefix}{path_without_leading_backslashes}"
         return f"\\\\?\\{path_str}"
     return str(candidate_path)
+
+
+def load_state_dict_checkpoint(path: Path | str, map_location) -> dict:
+    """Load a ``.pth`` state dict, preferring PyTorch's safe (weights-only) reader.
+
+    ``torch.load(..., weights_only=True)`` only understands a restricted pickle
+    dialect: this torch build's unpickler implements protocol-2 opcodes and an
+    allowlist of globals.  A checkpoint written with a higher pickle protocol,
+    by a newer torch, or one that carries a non-tensor object (numpy scalar,
+    custom class) therefore fails with ``UnpicklingError`` even though it is a
+    perfectly good local checkpoint.  Because every checkpoint this project
+    loads was produced by its own training run, we retry unsafely and say so
+    loudly rather than dead-ending the user.
+    """
+
+    torch_path = resolve_torch_io_path(path)
+    try:
+        payload = torch.load(torch_path, map_location=map_location, weights_only=True)
+    except pickle.UnpicklingError as safe_load_error:
+        warnings.warn(
+            f"Safe (weights_only=True) load failed for {path}: {safe_load_error}. "
+            "Retrying with weights_only=False -- this executes pickled code, so only "
+            "keep this path for checkpoints you produced yourself.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        LOGGER.warning("Falling back to unsafe torch.load for %s", path)
+        payload = torch.load(torch_path, map_location=map_location, weights_only=False)
+
+    # Trainer checkpoints are bare state dicts, but tolerate the common wrappers.
+    if isinstance(payload, dict):
+        for wrapper_key in ("state_dict", "model_state_dict"):
+            if wrapper_key in payload and isinstance(payload[wrapper_key], dict):
+                payload = payload[wrapper_key]
+                break
+
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"Checkpoint {path} does not contain a state dict (got {type(payload).__name__})."
+        )
+    return payload
 
 
 def _max_readable_index(dset) -> int:

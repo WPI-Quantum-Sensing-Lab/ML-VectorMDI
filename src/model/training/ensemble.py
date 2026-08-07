@@ -75,6 +75,7 @@ import torch
 import torch.nn as nn
 
 from model.architecture import AttentionDipoleModel
+from model.training.stage_runner import load_state_dict_checkpoint
 
 # src/ directory (two levels above this file); child processes need it on
 # PYTHONPATH so `-m model.training.curriculum` resolves regardless of cwd.
@@ -119,7 +120,7 @@ class EnsemblePredictor(nn.Module):
         members = []
         for p in checkpoint_paths:
             m = AttentionDipoleModel(base_channels=base_channels).to(device)
-            state = torch.load(str(p), map_location=device, weights_only=True)
+            state = load_state_dict_checkpoint(p, map_location=device)
             m.load_state_dict(state, strict=True)
             m.eval()
             members.append(m)
