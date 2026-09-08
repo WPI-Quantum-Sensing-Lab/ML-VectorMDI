@@ -1,13 +1,13 @@
-# VecMagNet — Publication Release
+# - Publication Release
 
 Minimal code and artifacts needed to replicate the published experiment: a
-6-member (1 main + 5 ensemble) deep ensemble of curriculum-trained `AttentionDipoleModel` networks plus isotonic magnitude-calibration
+6-part (1 main model + 5-model ensemble) deep ensemble of curriculum-trained `AttentionDipoleModel` networks plus isotonic magnitude-calibration
 post-processing and the synthetic-data pipeline used to build the training and
 testing datasets.
 
 ## What you can do
 
-Every task is a script in `src/` driven by a config file in `configs/`.
+Every script in `src/` has a config file in `configs/`.
 Run everything from inside `src/`; pass `--config PATH` to use a different
 config file, and any extra CLI flags override the config values.
 
@@ -55,11 +55,11 @@ use `--dry-run` first to smoke-test the pipeline.
 
 | Piece | Files |
 |---|---|
-| Model architecture | `model/architecture.py` — `AttentionDipoleModel` (CNN backbone + attention pooling + DipoleNet heads, ≈3.2 M params), `DipoleNetLoss`, direction/magnitude metrics, HDF5 dataset wrappers |
+| Model architecture | `model/architecture.py` holds `AttentionDipoleModel` (CNN backbone + attention pooling + DipoleNet heads, ≈3.2 M params), `DipoleNetLoss`, direction/magnitude metrics, HDF5 dataset wrappers |
 | Training | `model/training/ensemble.py` (deep ensemble over seeds; also provides `EnsemblePredictor` for inference) → `model/training/curriculum.py` (2-D baby-steps curriculum: dipole count × SNR, competence-gated advancement) with `model/training/utils.py`, `model/training/stage_runner.py` (data loading, `train_one_stage`), `model/training/artifacts.py`, `model/training/metadata.py` |
-| Isotonic calibration | `model/calibration/survey.py` — runs the model over test datasets, pools (true, predicted) magnitudes, fits R²-weighted per-dipole and global `sklearn.isotonic.IsotonicRegression` maps and writes the JSON tables. `model/calibration/predict.py` provides model loading/inference. Apply a table by interpolating `X_thresholds → y_thresholds` (`np.interp`) on predicted magnitudes |
+| Isotonic calibration | `model/calibration/survey.py` runs the model over test datasets, pools (true, predicted) magnitudes, fits R²-weighted per-dipole and global `sklearn.isotonic.IsotonicRegression` maps and writes the JSON tables. `model/calibration/predict.py` provides model loading/inference. Apply a table by interpolating `X_thresholds → y_thresholds` (`np.interp`) on predicted magnitudes |
 | Source-map generation | `data_creation/generation/magnetic_moment_gen_mp.py` (synthetic multi-dipole field maps, multiprocess); `data_creation/generation/multi_source_maker.py` shows the publication's per-dipole-count generation sweep; `data_creation/utils/hdf5_storage.py`, `data_creation/utils/dataset_conversion.py` |
-| SNR-scaled data maps | `data_creation/snr/snr_blend_and_sort.py` — pairs each noiseless source map with a blank noise section from `blanks.h5` at the desired SNR levels and writes the blended datasets |
+| SNR-scaled data maps | `data_creation/snr/snr_blend_and_sort.py` pairs each noiseless source map with a blank noise section from `blanks.h5` at the desired SNR levels and writes the blended datasets |
 
 ## Replicating the experiment
 
@@ -73,16 +73,15 @@ use `--dry-run` first to smoke-test the pipeline.
    `training_<N>dipoles_Distance_snr_<S>` under `data/datasets/`
    (dipole counts 1–10 × SNR levels 0.05–20).
 3. **Train**: `python run_full_experiment.py` (use `--dry-run` first) for the
-   published 6-member ensemble, or `python train_ensemble.py` /
-   `python train_model.py` for config-driven runs. Published settings (baked
-   into the configs): 6 members (seeds 42–47), DipoleNet, mixup rate 0.1,
+   published (1+5)-member ensemble, or `python train_ensemble.py` /
+   `python train_model.py` for config-driven runs. Published settings (default in the configs): 6 models (seeds 42–47), DipoleNet, mixup rate 0.1,
    α = 0.6 curriculum, 20 000 samples/stage,
    early-stopped ≤300 epochs/stage, batch 64, AdamW lr 3e-4.
 5. **Fit the isotonic calibration**: point `configs/calibrate.ini` at the run
    manifest of the evaluated test datasets, then `python calibrate.py`; the
    fitted tables are written next to the ones shipped in `models/calibration/`.
 6. **Predict**: point `configs/predict.ini` at a `dataset.h5` and
-   `python predict.py` — prints the predicted moment, ensemble uncertainty,
+   `python predict.py` prints the predicted moment, ensemble uncertainty,
    and calibrated magnitude for one sample.
 
 ## Using the shipped models from Python
