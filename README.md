@@ -41,7 +41,7 @@ use `--dry-run` first to smoke-test the pipeline.
 │       ├── snr/                           SNR blending with blank noise
 │       └── utils/                         HDF5 storage + dataset helpers
 ├── data/blanks/blanks.h5       All 14,568 experimental blank noise sections
-│                               (Bx, By, Bz — 14568 × 100 × 100 float64)
+│                               (Bx, By, Bz 14568 × 100 × 100 float64)
 └── models/
     ├── ensemble_manifest.json  Manifest listing the 6 member checkpoints
     ├── member_00 … member_05/  Final trained weights (seed 42 … 47)
