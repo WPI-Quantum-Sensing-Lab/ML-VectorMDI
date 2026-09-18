@@ -57,7 +57,7 @@ use `--dry-run` first to smoke-test the pipeline.
 |---|---|
 | Model architecture | `model/architecture.py` holds `AttentionDipoleModel` (CNN backbone + attention pooling + DipoleNet heads, ≈3.2 M params), `DipoleNetLoss`, direction/magnitude metrics, HDF5 dataset wrappers |
 | Training | `model/training/ensemble.py` (deep ensemble over seeds; also provides `EnsemblePredictor` for inference) → `model/training/curriculum.py` (2-D baby-steps curriculum: dipole count × SNR, competence-gated advancement) with `model/training/utils.py`, `model/training/stage_runner.py` (data loading, `train_one_stage`), `model/training/artifacts.py`, `model/training/metadata.py` |
-| Isotonic calibration | `model/calibration/survey.py` runs the model over test datasets, pools (true, predicted) magnitudes, fits R²-weighted per-dipole and global `sklearn.isotonic.IsotonicRegression` maps and writes the JSON tables. `model/calibration/predict.py` provides model loading/inference. Apply a table by interpolating `X_thresholds → y_thresholds` (`np.interp`) on predicted magnitudes |
+| Isotonic calibration | `model/calibration/survey.py` runs the ensemble (or a single checkpoint) over the test datasets given by `--datasets`, pools (true, predicted) magnitudes, fits R²-weighted per-dipole and global `sklearn.isotonic.IsotonicRegression` maps and writes the JSON tables. `model/calibration/predict.py` provides model loading/inference. Apply a table by interpolating `X_thresholds → y_thresholds` (`np.interp`) on predicted magnitudes |
 | Source-map generation | `data_creation/generation/magnetic_moment_gen_mp.py` (synthetic multi-dipole field maps, multiprocess); `data_creation/generation/multi_source_maker.py` shows the publication's per-dipole-count generation sweep; `data_creation/utils/hdf5_storage.py`, `data_creation/utils/dataset_conversion.py` |
 | SNR-scaled data maps | `data_creation/snr/snr_blend_and_sort.py` pairs each noiseless source map with a blank noise section from `blanks.h5` at the desired SNR levels and writes the blended datasets |
 
@@ -77,9 +77,11 @@ use `--dry-run` first to smoke-test the pipeline.
    `python train_model.py` for config-driven runs. Published settings (default in the configs): 6 models (seeds 42–47), DipoleNet, mixup rate 0.1,
    α = 0.6 curriculum, 20 000 samples/stage,
    early-stopped ≤300 epochs/stage, batch 64, AdamW lr 3e-4.
-5. **Fit the isotonic calibration**: point `configs/calibrate.ini` at the run
-   manifest of the evaluated test datasets, then `python calibrate.py`; the
-   fitted tables are written next to the ones shipped in `models/calibration/`.
+5. **Fit the isotonic calibration**: point `datasets` in
+   `configs/calibrate.ini` at your test dataset directories (`manifest`
+   already points at `models/ensemble_manifest.json`, and all six members are
+   loaded as an ensemble), then `python calibrate.py`; the fitted tables are
+   written next to the ones shipped in `models/calibration/`.
 6. **Predict**: point `configs/predict.ini` at a `dataset.h5` and
    `python predict.py` prints the predicted moment, ensemble uncertainty,
    and calibrated magnitude for one sample.

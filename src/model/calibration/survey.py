@@ -12,11 +12,30 @@ numbers for every condition.
 Use --from-csv to skip inference entirely and recompute pooled factors from an existing
 per-dataset CSV — instant, no GPU required.
 
+Manifests
+---------
+Two manifest layouts are accepted:
+
+  * ``models/ensemble_manifest.json`` (written by ``train_ensemble.py``, and the
+    one shipped with this release).  It supplies ``member_final_checkpoints``;
+    all members are loaded as an ``EnsemblePredictor`` and the survey calibrates
+    the ensemble mean — the same prediction ``predict.py`` produces.  The
+    ensemble manifest carries no dataset list, so the datasets to survey come
+    from ``--datasets`` (or, failing that, from ``hyperparams.dataset_root``).
+  * A ``run_manifest.json`` from the evaluation tooling (not part of this
+    release), with ``model_path`` / ``model_type`` / ``dataset_directories``.
+    Those keys are still honoured when present.
+
 Usage
 -----
     cd src
-    # Full survey (runs model on all datasets; settings in configs/calibrate.ini):
+    # Full survey (runs the shipped ensemble over all test datasets;
+    # settings in configs/calibrate.ini):
     python calibrate.py
+
+    # Explicit manifest + dataset glob:
+    python calibrate.py --manifest ../models/ensemble_manifest.json \
+        --datasets "../data/datasets/testing_*dipoles_*"
 
     # Derive factor from 10-dipole, SNR <= 0.5 only (no re-inference):
     python calibrate.py --from-csv figures/calibration_survey/calibration_survey.csv \
@@ -25,6 +44,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import re
 import sys
@@ -41,6 +61,7 @@ if str(_SRC) not in sys.path:
 
 from model.calibration import predict
 from model.calibration.predict import load_model
+from model.training.ensemble import EnsemblePredictor
 
 # ---------------------------------------------------------------------------
 # Dataset-name parsing helpers (inlined from the evaluation tooling, which is
@@ -147,7 +168,7 @@ def infer_snr(dataset_directory: Path) -> float:
 
 
 
-_DEFAULT_MANIFEST = _SRC / "big_results_new" / "no_physics" / "eval_error" / "run_manifest.json"
+_DEFAULT_MANIFEST = _SRC.parent / "models" / "ensemble_manifest.json"
 _DEFAULT_OUTPUT   = _SRC / "figures" / "calibration_survey" / "calibration_survey.csv"
 CALIBRATION_SUMMARY_JSON     = _SRC / "figures" / "calibration_survey" / "calibration_summary.json"
 CALIBRATION_TABLE_PER_SNR    = _SRC / "figures" / "calibration_survey" / "calibration_table_per_snr.json"
@@ -155,6 +176,162 @@ CALIBRATION_TABLE_PER_DIPOLE = _SRC / "figures" / "calibration_survey" / "calibr
 CALIBRATION_TABLE_ISOTONIC        = _SRC / "figures" / "calibration_survey" / "calibration_table_isotonic.json"
 CALIBRATION_TABLE_ISOTONIC_GLOBAL = _SRC / "figures" / "calibration_survey" / "calibration_table_isotonic_global.json"
 
+
+
+# ---------------------------------------------------------------------------
+# Manifest resolution
+# ---------------------------------------------------------------------------
+
+DEFAULT_MODEL_TYPE = "dipolenet"
+
+
+def _resolve_manifest_relative(raw: str, manifest_path: Path) -> Path:
+    """Resolve a path recorded in a manifest.
+
+    ``train_ensemble.py`` records checkpoint paths relative to the repository
+    root (e.g. ``models/member_00/...``), so try the plausible bases before
+    giving up.
+    """
+
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    bases = (
+        manifest_path.parent.parent,   # repo root, for models/ensemble_manifest.json
+        manifest_path.parent,
+        _SRC.parent,                   # repo root
+        _SRC,
+        Path.cwd(),
+    )
+    for base in bases:
+        resolved = base / candidate
+        if resolved.exists():
+            return resolved.resolve()
+    return candidate
+
+
+def _split_patterns(values: list[str] | None) -> list[str]:
+    """Flatten repeated --datasets flags and comma-separated lists."""
+
+    patterns: list[str] = []
+    for value in values or []:
+        for part in str(value).split(","):
+            part = part.strip()
+            if part:
+                patterns.append(part)
+    return patterns
+
+
+def _expand_dataset_patterns(patterns: list[str]) -> list[Path]:
+    """Expand globs / directories into directories that hold a ``dataset.h5``.
+
+    A pattern may name a ``dataset.h5``, a dataset directory, or a parent
+    directory whose children are dataset directories.
+    """
+
+    found: list[Path] = []
+    for pattern in patterns:
+        expanded = str(Path(pattern).expanduser())
+        matches = sorted(glob.glob(expanded))
+        if not matches and Path(expanded).exists():
+            matches = [expanded]
+        for match in matches:
+            path = Path(match)
+            if path.is_file():
+                if path.name == DATASET_FILENAME:
+                    found.append(path.parent)
+                continue
+            if not path.is_dir():
+                continue
+            if (path / DATASET_FILENAME).exists():
+                found.append(path)
+            else:   # a parent directory of dataset directories
+                found.extend(
+                    sorted(
+                        child for child in path.iterdir()
+                        if child.is_dir() and (child / DATASET_FILENAME).exists()
+                    )
+                )
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for directory in found:
+        key = directory.resolve()
+        if key not in seen:
+            seen.add(key)
+            unique.append(directory)
+    return unique
+
+
+def resolve_manifest(
+    manifest_path: Path,
+    *,
+    dataset_patterns: list[str] | None = None,
+) -> tuple[list[Path], str, list[Path]]:
+    """Return ``(checkpoints, model_type, dataset_directories)`` for a manifest.
+
+    Accepts both the ensemble manifest written by ``train_ensemble.py`` and the
+    evaluation tooling's ``run_manifest.json`` (see the module docstring).
+    """
+
+    manifest_path = Path(manifest_path).expanduser()
+    if not manifest_path.exists():
+        raise SystemExit(f"Manifest not found: {manifest_path}")
+    with manifest_path.open(encoding="utf-8") as fh:
+        manifest = json.load(fh)
+
+    # ── Checkpoints ──────────────────────────────────────────────────────
+    members = [p for p in (manifest.get("member_final_checkpoints") or []) if p]
+    if members:
+        checkpoints = [_resolve_manifest_relative(p, manifest_path) for p in members]
+    elif manifest.get("model_path"):
+        checkpoints = [_resolve_manifest_relative(manifest["model_path"], manifest_path)]
+    else:
+        raise SystemExit(
+            f"Manifest {manifest_path} has neither 'member_final_checkpoints' "
+            f"(ensemble manifest) nor 'model_path' (eval run manifest)."
+        )
+
+    missing = [str(c) for c in checkpoints if not c.exists()]
+    if missing:
+        raise SystemExit(
+            "Checkpoints listed in the manifest were not found:\n  "
+            + "\n  ".join(missing)
+        )
+
+    # ── Model type ───────────────────────────────────────────────────────
+    model_type = manifest.get("model_type")
+    if not model_type:
+        # The ensemble manifest records the training flags instead; every
+        # member is an AttentionDipoleModel, which load_model calls "dipolenet".
+        model_type = DEFAULT_MODEL_TYPE
+
+    # ── Dataset directories ──────────────────────────────────────────────
+    patterns = _split_patterns(dataset_patterns)
+    if patterns:
+        directories = _expand_dataset_patterns(patterns)
+        source = "--datasets"
+    elif manifest.get("dataset_directories"):
+        directories = [Path(d) for d in manifest["dataset_directories"]]
+        source = "manifest['dataset_directories']"
+    else:
+        dataset_root = (manifest.get("hyperparams") or {}).get("dataset_root")
+        if not dataset_root:
+            raise SystemExit(
+                f"Manifest {manifest_path} lists no datasets. Pass --datasets "
+                f"with a glob of the test dataset directories (or set `datasets` "
+                f"in configs/calibrate.ini)."
+            )
+        directories = _expand_dataset_patterns([dataset_root])
+        source = f"hyperparams.dataset_root ({dataset_root})"
+
+    if not directories:
+        raise SystemExit(
+            f"No dataset directories containing {DATASET_FILENAME} found via {source}."
+        )
+    print(f"Datasets from {source}")
+
+    return checkpoints, model_type, directories
 
 
 def _fit_slope_with_stats(
@@ -219,20 +396,30 @@ def survey(
     device: torch.device,
     scale_samples_by_dipoles: bool = False,
     r2_min: float = 0.85,
+    dataset_patterns: list[str] | None = None,
+    base_channels: int = 32,
 ) -> tuple:
-    with manifest_path.open() as f:
-        manifest = json.load(f)
+    checkpoints, model_type, directories = resolve_manifest(
+        manifest_path, dataset_patterns=dataset_patterns
+    )
 
-    model_path = Path(manifest["model_path"])
-    model_type = manifest["model_type"]
-    directories = [Path(d) for d in manifest["dataset_directories"]]
-
-    print(f"Model : {model_path}")
+    is_ensemble = len(checkpoints) > 1
+    if is_ensemble:
+        print(f"Model : ensemble of {len(checkpoints)} members "
+              f"(from {Path(manifest_path).name})")
+    else:
+        print(f"Model : {checkpoints[0]}")
     print(f"Type  : {model_type}")
     print(f"Dirs  : {len(directories)}")
     print(f"Device: {device}\n")
 
-    model = load_model(model_path, device, model_type)
+    if is_ensemble:
+        # Calibrate the ensemble mean — the same quantity predict.py reports.
+        model = EnsemblePredictor.from_checkpoints(
+            checkpoints, base_channels=base_channels, device=device
+        )
+    else:
+        model = load_model(checkpoints[0], device, model_type)
     rng   = np.random.default_rng(seed)
 
     # Global accumulators for pooled slope
@@ -601,7 +788,15 @@ def print_summary(df: pd.DataFrame, global_sum_tp: float, global_sum_tt: float) 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST,
-                   help="Path to run_manifest.json from a prior eval run.")
+                   help="Path to models/ensemble_manifest.json (all members are used as an "
+                        "ensemble) or to a run_manifest.json from a prior eval run.")
+    p.add_argument("--datasets", action="append", default=None, metavar="GLOB",
+                   help="Dataset directories to survey: a glob, a directory holding "
+                        "dataset.h5, or a parent of such directories. Repeatable, and "
+                        "comma-separated values are accepted. Required with an ensemble "
+                        "manifest, which carries no dataset list.")
+    p.add_argument("--base-channels", type=int, default=32,
+                   help="base_channels of the ensemble members (default: 32).")
     p.add_argument("--samples", type=int, default=200,
                    help="Max samples per dataset (default: 200).")
     p.add_argument("--scale-samples-by-dipoles", action="store_true",
@@ -644,6 +839,8 @@ def main() -> None:
             device=device,
             scale_samples_by_dipoles=args.scale_samples_by_dipoles,
             r2_min=args.pool_r2_min,
+            dataset_patterns=args.datasets,
+            base_channels=args.base_channels,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(args.output, index=False)
