@@ -5,6 +5,8 @@ Minimal code and artifacts needed to replicate the published experiment: a
 post-processing and the synthetic-data pipeline used to build the training and
 testing datasets.
 
+The NV blank-section data needed to run this code are publicly available on [Zenodo](https://zenodo.org/records/21383892?token=eyJhbGciOiJIUzUxMiIsImlhdCI6MTc5MDA4OTYzMCwiZXhwIjoyNTMzOTI0NTExOTl9.eyJpZCI6IjE0NDkyZjc1LTc1OGMtNDlmMi1iOTMwLTY1YmM0YzZhM2NmYiIsImRhdGEiOnt9LCJyYW5kb20iOiJjYWRiZGYyZDc5MGY5ZDljOTFkNDI1ZGE3MTI5ZmFhMyJ9.XjPJBGZFkZge4kMdXt75ysUEY4LF8oagGskInd8nYNLU2FiDxKykYA969fejF663x5jxNG0hbdPi4rdyrPtqdw).
+
 ## What you can do
 
 Every script in `src/` has a config file in `configs/`.
