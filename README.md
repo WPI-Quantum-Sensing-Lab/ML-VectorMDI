@@ -110,5 +110,3 @@ mean_moment, std_moment = predictor(x)   # x: [B, 3, 100, 100]
   tooling from the research repository are intentionally omitted.
 - `PATH_TO/...` placeholders in the `configs/` files must be pointed at your
   local copies of the data before running.
-- `blanks.h5` contains the noise maps; the shipped models were trained on datasets built from
-  exactly these.
