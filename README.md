@@ -1,4 +1,4 @@
-# - Publication Release
+#Machine Learning Vector Magnetic Dipole Inversion - Publication Release
 
 Minimal code and artifacts needed to replicate the published experiment: a
 6-part (1 main model + 5-model ensemble) deep ensemble of curriculum-trained `AttentionDipoleModel` networks plus isotonic magnitude-calibration
